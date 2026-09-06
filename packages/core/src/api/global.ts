@@ -11,7 +11,7 @@ export function defineGlobal() {
             get Stores() { return Stores },
             get Modules() { return Modules },
             get Ui() { return Ui },
-            get plugins() { return packageStore.entriesMap; },
+            get packages() { return packageStore.entriesMap; },
         }
     });
 

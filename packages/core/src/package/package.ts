@@ -19,12 +19,12 @@ export interface PackageInterface {
 export type PackageEntry = {
     package: PackageInterface;
     toggled: boolean;
-    pending: boolean;
+    loaded: boolean;
 }
 
 class PackageStore extends FoxcordStore {
     private packages: Map<string, PackageEntry> = new Map();
-    private pendingPackages: boolean = false;
+    private pendingPackages: number = 0;
 
     register(pack: PackageInterface, toggled = pack.core === true) {
         this.rawRegister(pack, toggled);
@@ -34,14 +34,14 @@ class PackageStore extends FoxcordStore {
     private rawRegister(pack: PackageInterface, toggled = pack.core === true) {
         if (this.packages.has(pack.name)) return;
 
-        this.packages.set(pack.name, { package: pack, toggled, pending: false });
+        this.packages.set(pack.name, { package: pack, toggled, loaded: toggled && (isStartup() || hotLoadable(pack)) });
         if (toggled) {
             if (isStartup()) {
                 startupLoadPackage(pack);
             } else if (hotLoadable(pack)) {
                 hotLoadPackage(pack);
             } else {
-                this.markPending(pack.name);
+                this.pendingPackages++;
             }
         }
     }
@@ -62,27 +62,25 @@ class PackageStore extends FoxcordStore {
         const entry = this.packages.get(name);
         if (!entry) return;
         if (entry.package.core) return;
+        if (entry.toggled == toggle) return;
 
         entry.toggled = toggle;
 
         if (!hotLoadable(entry.package)) {
-            this.markPending(name);
+            if (toggle == entry.loaded) {
+                this.pendingPackages--;
+            } else {
+                this.pendingPackages++;
+            }
         } else if (toggle) {
             hotLoadPackage(entry.package);
+            entry.loaded = true;
         } else {
             hotUnloadPackage(entry.package);
+            entry.loaded = false;
         }
 
         this.emit();
-    }
-
-    private markPending(name: string) {
-        const entry = this.packages.get(name);
-        if (!entry) return;
-        if (entry.package.core) return;
-
-        entry.pending = true;
-        this.pendingPackages = true;
     }
 
     get entries() {
@@ -94,7 +92,7 @@ class PackageStore extends FoxcordStore {
     }
 
     get isPending() {
-        return this.pendingPackages;
+        return this.pendingPackages > 0;
     }
 }
 

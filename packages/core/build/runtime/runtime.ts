@@ -27,4 +27,8 @@ export namespace JSX {
     export interface ElementChildrenAttribute {
         children: {};
     }
+
+    export interface IntrinsicAttributes {
+        key?: any;
+    }
 }

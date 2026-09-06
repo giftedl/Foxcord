@@ -96,7 +96,8 @@ export default definePackage({
                 packageStore.reactSubscribe();
 
                 return <>
-                    {[...packageStore.entries].map(([k, v]) => <Package pack={v.package} status={v.toggled} toggle={() => packageStore.setToggled(v.package.name, !v.toggled)}></Package>)}
+                    {packageStore.isPending && <h1 className={"paddedBottom"}>Packages enabled/disabled require a refresh of the Discord client to update it's status.</h1>}
+                    {[...packageStore.entries].map(([k, v]) => <Package key={k} pack={v.package} status={v.toggled} toggle={() => packageStore.setToggled(v.package.name, !v.toggled)}></Package>)}
                 </>
             },
             useSearchTerms: () => ['Packages'],
