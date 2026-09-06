@@ -12,7 +12,7 @@ import {
     accessPackageRuntime,
     definePackage,
     PackageInterface,
-    packages, toggledPackages,
+    packageStore,
 } from '@foxcord/core/package/package';
 
 import styles from './core.css';
@@ -91,32 +91,34 @@ export default definePackage({
             );
         }
 
-        let custom = createCustom('plugins_button', {
+        let custom = createCustom('packages_button', {
             Component: function () {
+                packageStore.reactSubscribe();
+
                 return <>
-                    {[...toggledPackages].map(([k, v]) => <Package pack={v.package} status={v.toggled}></Package>)}
+                    {[...packageStore.entries].map(([k, v]) => <Package pack={v.package} status={v.toggled} toggle={() => packageStore.setToggled(v.package.name, !v.toggled)}></Package>)}
                 </>
             },
-            useSearchTerms: () => ['Plugins'],
+            useSearchTerms: () => ['Packages'],
         });
 
-        let category = createCategory('plugins_category', {
+        let category = createCategory('packages_category', {
             useTitle: () => "Packages:",
             buildLayout: () => [custom],
         });
 
-        let panel = createPanel('plugins_panel', {
+        let panel = createPanel('packages_panel', {
             useTitle: () => 'Packages',
             buildLayout: () => [category],
         });
 
-        let sidebar = createSidebarItem('plugin_item', {
+        let sidebar = createSidebarItem('packages_item', {
             useTitle: () => 'Packages',
             icon: PackageIcon,
             buildLayout: () => [panel],
         });
 
-        return createSection('plugin_section', {
+        return createSection('packages_section', {
             useTitle: () => 'Foxcord',
             buildLayout: () => [sidebar],
         });
@@ -126,13 +128,14 @@ export default definePackage({
 interface PackageProps {
     pack: PackageInterface;
     status: boolean;
+    toggle: () => void;
 }
 
-function Package({ pack, status}: PackageProps) {
+function Package({ pack, status, toggle }: PackageProps) {
     return <div>
         <h1 className={"halfPaddedBottom"}>{`${pack.name}:`}</h1>
         <div className={"paddedBottom"}>
-            <Button text={status ? "Disable" : "Enable"} variant={"secondary"} onClick = {() => {}} disabled={pack.core === true}></Button>
+            <Button text={status ? "Disable" : "Enable"} variant={"secondary"} onClick = {toggle} disabled={pack.core === true}></Button>
         </div>
     </div>
 }

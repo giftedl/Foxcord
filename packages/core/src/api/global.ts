@@ -1,5 +1,5 @@
 import * as Stores from "../webpack/discord/stores";
-import {packages} from "../package/package";
+import { packageStore} from "../package/package";
 import * as Modules from "../webpack/discord/modules";
 import * as Ui from "../webpack/discord/ui";
 import { webpack } from '../webpack/hookWebpack';
@@ -11,7 +11,7 @@ export function defineGlobal() {
             get Stores() { return Stores },
             get Modules() { return Modules },
             get Ui() { return Ui },
-            get plugins() { return packages; },
+            get plugins() { return packageStore.entriesMap; },
         }
     });
 
@@ -22,7 +22,7 @@ export function defineGlobal() {
                 return Modules.ReactJsxModule;
             },
             get p() {
-                return packages;
+                return packageStore.entriesMap;
             }
         }
     })

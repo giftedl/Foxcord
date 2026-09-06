@@ -16,8 +16,22 @@ vulpmap.registerMapperAndSearch(
             builder.mapProperty(found);
         },
         filterType: FilterType.ExportsFilter,
-        filter: new FullExportsFilterBuilder(utils.makeFullFilter(utils.byPropsFilter("jsxs", "jsx", "Fragment")))
+        filter: new FullExportsFilterBuilder(utils.byPropsFilter("jsxs", "jsx", "Fragment"))
             .retrieveRoot(true)
             .finish(),
     }
 ).then(mapped => ReactJsxModule = mapped as unknown as JsxModule);
+
+export var React: any;
+vulpmap.registerMapperAndSearch(
+    "React/React",
+    {
+        map(found, builder) {
+            builder.mapProperty(found);
+        },
+        filterType: FilterType.ExportsFilter,
+        filter: new FullExportsFilterBuilder(utils.byPropsFilter("useEffect", "useReducer", "useState", "useMemo"))
+            .retrieveRoot(false)
+            .finish(),
+    }
+).then(mapped => React = mapped as any);

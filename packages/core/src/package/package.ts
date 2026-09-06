@@ -2,33 +2,10 @@ import { patches, replaceSource } from '../webpack/patch';
 import corePlugin from './packages/core/core';
 import privacyPlugin from './packages/privacy';
 import experimentsPlugin from './packages/experiments';
+import testPlugin from './packages/test';
 import { PatchType, UniformPatch } from '@foxcord/vulpatch';
-
-function makeToggled(pack: PackageInterface) {
-    return {
-        package: pack,
-        toggled: pack.core == true
-    }
-}
-
-export var packages: Map<string, PackageInterface> = mapPackages([
-    corePlugin,
-    privacyPlugin,
-    experimentsPlugin
-]);
-
-export var toggledPackages: Map<string, ToggledPackage> = new Map(
-    [...packages].map(([k, v]) => [k, {
-        package: v,
-        toggled: v.core === true
-    }])
-);
-
-function mapPackages(plugins: PackageInterface[]) {
-    return new Map(
-        plugins.map(pack => [pack.name, pack])
-    )
-}
+import { FoxcordStore } from '@foxcord/core/utils/store';
+import { webpack } from '@foxcord/core/webpack/hookWebpack';
 
 export interface PackageInterface {
     name: string;
@@ -39,9 +16,105 @@ export interface PackageInterface {
     [key: string]: any;
 }
 
-export type ToggledPackage = {
+export type PackageEntry = {
     package: PackageInterface;
     toggled: boolean;
+    pending: boolean;
+}
+
+class PackageStore extends FoxcordStore {
+    private packages: Map<string, PackageEntry> = new Map();
+    private pendingPackages: boolean = false;
+
+    register(pack: PackageInterface, toggled = pack.core === true) {
+        this.rawRegister(pack, toggled);
+        this.emit();
+    }
+
+    private rawRegister(pack: PackageInterface, toggled = pack.core === true) {
+        if (this.packages.has(pack.name)) return;
+
+        this.packages.set(pack.name, { package: pack, toggled, pending: false });
+        if (toggled) {
+            if (isStartup()) {
+                startupLoadPackage(pack);
+            } else if (hotLoadable(pack)) {
+                hotLoadPackage(pack);
+            } else {
+                this.markPending(pack.name);
+            }
+        }
+    }
+
+    registerBatch(...packs: PackageInterface[]) {
+        for (const pack of packs) {
+            this.rawRegister(pack);
+        }
+
+        this.emit();
+    }
+
+    get(name: string) {
+        return this.packages.get(name);
+    }
+
+    setToggled(name: string, toggle: boolean) {
+        const entry = this.packages.get(name);
+        if (!entry) return;
+        if (entry.package.core) return;
+
+        entry.toggled = toggle;
+
+        if (!hotLoadable(entry.package)) {
+            this.markPending(name);
+        } else if (toggle) {
+            hotLoadPackage(entry.package);
+        } else {
+            hotUnloadPackage(entry.package);
+        }
+
+        this.emit();
+    }
+
+    private markPending(name: string) {
+        const entry = this.packages.get(name);
+        if (!entry) return;
+        if (entry.package.core) return;
+
+        entry.pending = true;
+        this.pendingPackages = true;
+    }
+
+    get entries() {
+        return [...this.packages];
+    }
+
+    get entriesMap() {
+        return new Map(this.packages);
+    }
+
+    get isPending() {
+        return this.pendingPackages;
+    }
+}
+
+export const packageStore = new PackageStore();
+
+export function initPackages() {
+    packageStore.registerBatch(
+        corePlugin,
+        privacyPlugin,
+        experimentsPlugin,
+        testPlugin,
+    );
+}
+
+function hotLoadable(pack: PackageInterface) {
+    return pack.patches == undefined;
+}
+
+function isStartup(): boolean {
+    return webpack == undefined;
 }
 
 export function definePackage(plugin: PackageInterface): PackageInterface {
@@ -63,30 +136,36 @@ export function replaceSelfRef(name: string, replace: string) {
 }
 
 export function accessPackageRuntime(name: string) {
-    return `window.BSJD.p.get(${JSON.stringify(name)})`;
+    return `window.BSJD.p.get(${JSON.stringify(name)}).package`;
 }
 
-export function registerPackages() {
-    for (const pack of toggledPackages.values()) {
-        if (pack.toggled) {
-            const pluginPatches = pack.package.patches || [];
+export function hotLoadPackage(pack: PackageInterface) {
+    if (!hotLoadable(pack)) return;
 
-            pluginPatches.forEach(patch => replaceSource(patch, pack.package.name));
-
-            patches.regexPatches.push(...pluginPatches.filter((patch) => patch.type == PatchType.RegexPatch));
-            patches.astPatches.push(...pluginPatches.filter((patch) => patch.type == PatchType.AstPatch));
-
-            if (pack.package.load) {
-                pack.package.load();
-            }
-        }
+    if (pack.load) {
+        pack.load();
     }
 }
 
-export function handleEnabledPackage(pack: PackageInterface) {
-    if (pack.patches) return;
+export function hotUnloadPackage(pack: PackageInterface) {
+    if (!hotLoadable(pack)) return;
 
-    if (pack.package.load) {
-        pack.package.load();
+    if (pack.unload) {
+        pack.unload();
+    }
+}
+
+export function startupLoadPackage(pack: PackageInterface) {
+    if (!isStartup()) return;
+
+    const pluginPatches = pack.patches || [];
+
+    pluginPatches.forEach(patch => replaceSource(patch, pack.name));
+
+    patches.regexPatches.push(...pluginPatches.filter((patch) => patch.type == PatchType.RegexPatch));
+    patches.astPatches.push(...pluginPatches.filter((patch) => patch.type == PatchType.AstPatch));
+
+    if (pack.load) {
+        pack.load();
     }
 }
