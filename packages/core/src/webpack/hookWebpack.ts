@@ -51,6 +51,3 @@ export function registerHook(posthook?: (require: WebpackRequire) => void) {
         }
     })
 }
-
-export class webpackRequire {
-}
