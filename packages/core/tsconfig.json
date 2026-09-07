@@ -30,7 +30,8 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@foxcord/core/*": ["./src/*"]
     }
   }
 }
