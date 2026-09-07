@@ -1,4 +1,4 @@
-import type { PackageInterface } from '../../src/package/package';
+import type { PackageInterface } from '@/package/package';
 
 declare global {
     interface Window {
